@@ -4,8 +4,8 @@ services:
     name: efootball-bot
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
+    buildCommand: cd bot && pip install -r requirements.txt
+    startCommand: cd bot && python bot.py
     envVars:
       - key: BOT_TOKEN
         sync: false
@@ -16,5 +16,5 @@ services:
 EOF
 
 git add render.yaml
-git commit -m "Add render.yaml"
+git commit -m "Fix path in render.yaml"
 git push origin main
