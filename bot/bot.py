@@ -46,8 +46,8 @@ dp = Dispatcher(storage=storage)
 # ============ STATES ============
 class AdStates(StatesGroup):
     waiting_payment = State()
-    waiting_payment_check = State()      # To'lov cheki
-    waiting_media = State()              # Akkaunt rasmi
+    waiting_payment_check = State()
+    waiting_media = State()
     waiting_type = State()
     waiting_platform = State()
     waiting_rating = State()
@@ -709,7 +709,15 @@ async def main():
         else:
             logger.warning("⚠️ CHANNEL_ID o'rnatilmagan!")
         
+        # Webhook ni tozalash - Conflict xatosi uchun
+        try:
+            await bot.delete_webhook(drop_pending_updates=True)
+            logger.info("✅ Webhook tozalandi")
+        except Exception as e:
+            logger.warning(f"⚠️ Webhook tozalashda xatolik: {e}")
+        
         await dp.start_polling(bot)
+        
     except Exception as e:
         logger.error(f"❌ Xatolik: {e}")
         raise
