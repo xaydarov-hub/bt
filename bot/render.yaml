@@ -1,0 +1,20 @@
+cat > render.yaml << 'EOF'
+services:
+  - type: web
+    name: efootball-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: CHANNEL_ID
+        sync: false
+EOF
+
+git add render.yaml
+git commit -m "Add render.yaml"
+git push origin main
