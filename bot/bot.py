@@ -1,6 +1,6 @@
 """
 eFootball Shop Bot - Professional versiya
-Admin tasdiqlaydi, to'lov bilan
+To'lov cheki + Akkaunt rasmi bilan
 """
 
 import asyncio
@@ -21,7 +21,6 @@ from aiogram.types import (
 )
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 # ============ CONFIGURATION ============
@@ -46,14 +45,15 @@ dp = Dispatcher(storage=storage)
 
 # ============ STATES ============
 class AdStates(StatesGroup):
-    waiting_media = State()
+    waiting_payment = State()
+    waiting_payment_check = State()      # To'lov cheki
+    waiting_media = State()              # Akkaunt rasmi
     waiting_type = State()
     waiting_platform = State()
     waiting_rating = State()
     waiting_players = State()
     waiting_price = State()
     waiting_description = State()
-    waiting_payment = State()
 
 # ============ KEYBOARDS ============
 def main_menu():
@@ -79,35 +79,24 @@ def cancel_kb():
     return kb
 
 def ad_type_kb():
-    kb = InlineKeyboardMarkup(
+    return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🛒 Sotaman", callback_data="ad_type_sell")],
             [InlineKeyboardButton(text="🛍️ Sotib olaman", callback_data="ad_type_buy")]
         ]
     )
-    return kb
 
 def platform_kb():
-    kb = InlineKeyboardMarkup(
+    return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📱 Android", callback_data="platform_android")],
             [InlineKeyboardButton(text="🍎 iPhone", callback_data="platform_iphone")],
             [InlineKeyboardButton(text="🎮 Konami ID", callback_data="platform_konami")]
         ]
     )
-    return kb
-
-def payment_kb():
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="💳 To'lov qilish", callback_data="pay_now")],
-            [InlineKeyboardButton(text="⏭ O'tkazib yuborish", callback_data="pay_skip")]
-        ]
-    )
-    return kb
 
 def admin_ad_kb(ad_id: int):
-    kb = InlineKeyboardMarkup(
+    return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"approve_{ad_id}"),
@@ -115,11 +104,8 @@ def admin_ad_kb(ad_id: int):
             ]
         ]
     )
-    return kb
 
-# ============ HELPERS ============
 def get_user_link(user):
-    """Get user mention or username"""
     if user.username:
         return f"@{user.username}"
     elif user.first_name:
@@ -128,11 +114,9 @@ def get_user_link(user):
         return f"[User](tg://user?id={user.id})"
 
 def format_price(price):
-    """Format price with spaces"""
     return f"{price:,}".replace(",", " ") + " so'm"
 
 def create_ad_text(data, username, user_id):
-    """Create beautiful ad text"""
     ad_type_text = "🛒 SOTAMAN" if data.get('ad_type') == 'sell' else "🛍️ SOTIB OLAMAN"
     tariff_text = "⭐ VIP" if data.get('tariff') == 'vip' else "📢 ODDIY"
     
@@ -160,7 +144,6 @@ def create_ad_text(data, username, user_id):
         "   📲 Bog'lanish uchun yozing!\n"
         "════════════════════════════════"
     )
-    
     return text
 
 # ============ HANDLERS ============
@@ -175,8 +158,10 @@ async def start_command(message: Message):
         "Bu bot orqali siz:\n"
         "• ✅ E'lon berishingiz (sotish yoki olish)\n"
         "• 📂 E'lonlaringizni boshqarishingiz\n"
-        "• 👀 Boshqa foydalanuvchilar e'lonlarini ko'rishingiz\n\n"
-        "💡 E'lon berish uchun avval to'lov qilishingiz kerak!\n\n"
+        "• 👀 Boshqa e'lonlarni ko'rishingiz\n\n"
+        "💳 **To'lov ma'lumotlari:**\n"
+        "🏦 Karta: `9860166654505204`\n"
+        "👤 Egasi: `Sunnatov_Shukurullo`\n\n"
         "👇 Quyidagi tugmalardan foydalaning:"
     )
     await message.answer(welcome, reply_markup=main_menu(), parse_mode="Markdown")
@@ -191,12 +176,12 @@ async def create_ad_start(message: Message, state: FSMContext):
     payment_text = (
         "💰 **E'LON BERISH UCHUN TO'LOV**\n\n"
         "📌 E'lon berishdan oldin to'lov qilishingiz kerak!\n\n"
-        "💳 **Karta raqami:** `5614681019589435`\n"
-        "🏦 **Qabul qiluvchi:** `Kornish`\n\n"
+        "🏦 **Karta raqami:** `9860166654505204`\n"
+        "👤 **Karta egasi:** `Sunnatov_Shukurullo`\n\n"
         "💰 **To'lov summalari:**\n"
         "• 📢 Oddiy e'lon: 1000 so'm\n"
         "• ⭐ VIP e'lon: 5000 so'm\n\n"
-        "📸 To'lov chekini (skrinshot) keyin yuborasiz.\n"
+        "📸 **To'lov chekini (skrinshot) yuboring!**\n\n"
         "👇 Tarifni tanlang:"
     )
     
@@ -213,7 +198,6 @@ async def create_ad_start(message: Message, state: FSMContext):
 @dp.callback_query(F.data.startswith("pay_"))
 async def process_payment(callback: CallbackQuery, state: FSMContext):
     pay_type = callback.data.split("_")[1]
-    
     await state.update_data(tariff=pay_type)
     
     price = "1000" if pay_type == "standard" else "5000"
@@ -223,16 +207,41 @@ async def process_payment(callback: CallbackQuery, state: FSMContext):
         f"💳 **TO'LOV MA'LUMOTLARI**\n\n"
         f"📌 Tarif: {tariff_name}\n"
         f"💰 Summa: {price} so'm\n\n"
-        f"💳 **Karta raqami:** `5614681019589435`\n"
-        f"🏦 **Qabul qiluvchi:** `Kornish`\n\n"
+        f"🏦 **Karta raqami:** `9860166654505204`\n"
+        f"👤 **Karta egasi:** `Sunnatov_Shukurullo`\n\n"
         f"📸 **To'lov chekini (skrinshot) yuboring!**\n"
-        f"Chek yuborgandan so'ng e'lon berishni davom ettirasiz.\n\n"
-        f"✅ Chek yuborilgandan keyin **rasm/video** yuboring.",
+        f"Chek yuborgandan so'ng akkaunt rasmini yuborasiz.\n\n"
+        f"⬇️ **Chek rasmini yuboring:**",
         parse_mode="Markdown"
     )
     
-    await state.set_state(AdStates.waiting_media)
+    await state.set_state(AdStates.waiting_payment_check)
     await callback.answer()
+
+@dp.message(AdStates.waiting_payment_check)
+async def process_payment_check(message: Message, state: FSMContext):
+    if message.photo:
+        file_id = message.photo[-1].file_id
+        file_size = message.photo[-1].file_size
+    elif message.document:
+        file_id = message.document.file_id
+        file_size = message.document.file_size
+    else:
+        await message.answer("❌ Iltimos, to'lov chekining rasmini yuboring!")
+        return
+    
+    if file_size > 20 * 1024 * 1024:
+        await message.answer("❌ Fayl hajmi 20MB dan oshmasligi kerak!")
+        return
+    
+    await state.update_data(payment_check_id=file_id)
+    await state.set_state(AdStates.waiting_media)
+    await message.answer(
+        "✅ **To'lov cheki qabul qilindi!**\n\n"
+        "📸 **Endi akkaunt rasmini yuboring**\n\n"
+        "Bu rasm e'londa ko'rinadi.",
+        parse_mode="Markdown"
+    )
 
 @dp.message(AdStates.waiting_media)
 async def process_media(message: Message, state: FSMContext):
@@ -245,7 +254,7 @@ async def process_media(message: Message, state: FSMContext):
         media_type = "video"
         file_size = message.video.file_size
     else:
-        await message.answer("❌ Iltimos, rasm yoki video yuboring!")
+        await message.answer("❌ Iltimos, akkaunt rasmini (rasm yoki video) yuboring!")
         return
     
     if media_type == "photo" and file_size > 20 * 1024 * 1024:
@@ -357,30 +366,22 @@ async def process_description(message: Message, state: FSMContext):
     data = await state.get_data()
     data["description"] = description
     
-    # Get user info
     username = get_user_link(message.from_user)
     user_id = message.from_user.id
     
-    # Create beautiful ad text
     ad_text = create_ad_text(data, username, user_id)
     
     media_file_id = data.get("media_file_id")
     media_type = data.get("media_type")
+    payment_check_id = data.get("payment_check_id")
+    tariff = data.get("tariff", "standard")
     
     # Send preview to user
     try:
         if media_type == "photo":
-            sent_msg = await message.answer_photo(
-                media_file_id,
-                caption=ad_text,
-                parse_mode="Markdown"
-            )
+            await message.answer_photo(media_file_id, caption=ad_text, parse_mode="Markdown")
         else:
-            sent_msg = await message.answer_video(
-                media_file_id,
-                caption=ad_text,
-                parse_mode="Markdown"
-            )
+            await message.answer_video(media_file_id, caption=ad_text, parse_mode="Markdown")
     except Exception as e:
         logger.error(f"Error sending ad: {e}")
         await message.answer("❌ Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.")
@@ -388,7 +389,7 @@ async def process_description(message: Message, state: FSMContext):
         return
     
     # Prepare for admin
-    tariff_text = "⭐ VIP" if data.get('tariff') == 'vip' else "📢 ODDIY"
+    tariff_text = "⭐ VIP" if tariff == 'vip' else "📢 ODDIY"
     ad_type_text = "SOTAMAN" if data.get('ad_type') == 'sell' else "SOTIB OLAMAN"
     
     admin_text = (
@@ -398,15 +399,25 @@ async def process_description(message: Message, state: FSMContext):
         f"🆔 **ID:** `{user_id}`\n"
         f"🏷 **Tarif:** {tariff_text}\n"
         f"📋 **Tur:** {ad_type_text}\n"
+        f"💳 **To'lov cheki:** ✅ Qabul qilindi\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"{ad_text}"
     )
     
     ad_id = int(datetime.now().timestamp())
     
-    # Send to admin
+    # Send to admin with both images
     if ADMIN_ID:
         try:
+            # Send payment check first
+            await bot.send_photo(
+                ADMIN_ID,
+                payment_check_id,
+                caption="💳 **To'lov cheki**",
+                parse_mode="Markdown"
+            )
+            
+            # Then send ad with media
             if media_type == "photo":
                 await bot.send_photo(
                     ADMIN_ID,
@@ -426,7 +437,8 @@ async def process_description(message: Message, state: FSMContext):
             
             await message.answer(
                 "✅ **E'loningiz admin tekshiruviga yuborildi!**\n\n"
-                "📌 Admin tasdiqlagandan so'ng kanalda chiqariladi.\n"
+                "📌 Admin to'lov chekingizni tekshiradi.\n"
+                "✅ Tasdiqlangandan so'ng kanalda chiqariladi.\n"
                 "⏳ Iltimos, biroz kuting.",
                 reply_markup=main_menu(),
                 parse_mode="Markdown"
@@ -448,8 +460,8 @@ async def process_description(message: Message, state: FSMContext):
         'username': username,
         'media_file_id': media_file_id,
         'media_type': media_type,
-        'ad_text': ad_text,
-        'sent_msg': sent_msg
+        'payment_check_id': payment_check_id,
+        'ad_text': ad_text
     }
     
     await state.clear()
@@ -464,10 +476,8 @@ async def approve_ad(callback: CallbackQuery):
     
     ad_data = dp.pending_ads[ad_id]
     
-    # Send to channel
     if CHANNEL_ID:
         try:
-            # Get channel link
             channel_username = None
             try:
                 chat = await bot.get_chat(CHANNEL_ID)
@@ -507,7 +517,6 @@ async def approve_ad(callback: CallbackQuery):
             except:
                 pass
             
-            # Update admin message
             await callback.message.edit_caption(
                 f"{callback.message.caption}\n\n✅ **TASDIQLANDI!**",
                 reply_markup=None,
@@ -539,23 +548,22 @@ async def reject_ad(callback: CallbackQuery):
     
     ad_data = dp.pending_ads[ad_id]
     
-    # Notify user
     try:
         await bot.send_message(
             ad_data['user_id'],
             "❌ **E'loningiz rad etildi.**\n\n"
-            "📌 Sababi: Admin tomonidan tekshiruvdan o'tmadi.\n\n"
+            "📌 Sababi: Admin tomonidan tekshiruvdan o'tmadi.\n"
+            "💳 To'lov chekingiz tekshirilmadi yoki noto'g'ri.\n\n"
             "💡 Iltimos, e'loningizni qayta tekshirib ko'ring:\n"
+            "• To'lov cheki to'g'rimi?\n"
             "• Rasm/video to'g'rimi?\n"
-            "• Ma'lumotlar to'liqmi?\n"
-            "• Narx adolatlimi?\n\n"
+            "• Ma'lumotlar to'liqmi?\n\n"
             "Qayta e'lon berish uchun '📢 E'lon berish' tugmasini bosing.",
             parse_mode="Markdown"
         )
     except:
         pass
     
-    # Update admin message
     await callback.message.edit_caption(
         f"{callback.message.caption}\n\n❌ **RAD ETILDI!**",
         reply_markup=None,
@@ -587,21 +595,22 @@ async def guide(message: Message):
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
         "📢 **Qanday e'lon beriladi?**\n"
         "1️⃣ '📢 E'lon berish' tugmasini bosing\n"
-        "2️⃣ To'lov qiling (1000 yoki 5000 so'm)\n"
-        "3️⃣ Rasm yoki video yuboring\n"
-        "4️⃣ E'lon turini tanlang\n"
-        "5️⃣ Platformani tanlang\n"
-        "6️⃣ Overall ratingni kiriting\n"
-        "7️⃣ Top playerlarni yozing\n"
-        "8️⃣ Narxni kiriting\n"
-        "9️⃣ Qo'shimcha ma'lumot (ixtiyoriy)\n"
-        "🔟 Admin tasdiqlaydi va kanalda chiqadi\n\n"
+        "2️⃣ Tarifni tanlang (1000 yoki 5000 so'm)\n"
+        "3️⃣ To'lov chekini yuboring\n"
+        "4️⃣ Akkaunt rasmini yuboring\n"
+        "5️⃣ E'lon turini tanlang\n"
+        "6️⃣ Platformani tanlang\n"
+        "7️⃣ Overall ratingni kiriting\n"
+        "8️⃣ Top playerlarni yozing\n"
+        "9️⃣ Narxni kiriting\n"
+        "🔟 Qo'shimcha ma'lumot (ixtiyoriy)\n"
+        "1️⃣1️⃣ Admin tasdiqlaydi va kanalda chiqadi\n\n"
         
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "💳 **To'lov qanday qilinadi?**\n"
-        "💳 Karta: `5614681019589435`\n"
-        "🏦 Qabul qiluvchi: `Kornish`\n"
-        "📸 Chek yuborishingiz kerak!\n\n"
+        "💳 **To'lov ma'lumotlari:**\n"
+        "🏦 Karta: `9860166654505204`\n"
+        "👤 Egasi: `Sunnatov_Shukurullo`\n"
+        "📸 Chek yuborish majburiy!\n\n"
         
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
         "❓ **FAQ (Ko'p so'raladigan savollar)**\n"
@@ -634,8 +643,8 @@ async def ad_price(message: Message):
         "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         
         "💳 **TO'LOV MA'LUMOTLARI**\n"
-        "💳 Karta: `5614681019589435`\n"
-        "🏦 Qabul qiluvchi: `Kornish`\n\n"
+        "🏦 Karta: `9860166654505204`\n"
+        "👤 Egasi: `Sunnatov_Shukurullo`\n\n"
         
         "📸 Chek yuborish orqali to'lovni tasdiqlang!\n\n"
         "📢 E'lon berish uchun '📢 E'lon berish' tugmasini bosing."
